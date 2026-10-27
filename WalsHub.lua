@@ -1,4 +1,61 @@
--- Wals Hub (Delta)
+-- Pegar en WalsHub_v3.lua justo ANTES de la línea:  selectTab(tPlayer)
+
+state.eggRange = 50
+local tEgg = addTab("Egg")
+addSection(tEgg, "Huevos")
+addToggle(tEgg, "Auto romper / robar", "eggAuto")
+addSelector(tEgg, "Radio de búsqueda", { 20, 50, 100, 200 }, 50, function(v) state.eggRange = v end)
+
+local KEYWORDS = { "egg", "huevo", "steal", "robar", "break", "romper", "crack" }
+
+local function matches(p)
+    local text = string.lower((p.ActionText or "") .. " " .. (p.ObjectText or "") .. " " .. p.Parent.Name)
+    for _, k in ipairs(KEYWORDS) do
+        if string.find(text, k, 1, true) then return true end
+    end
+    return false
+end
+
+local prompts, lastScan = {}, 0
+local function scan()
+    prompts = {}
+    for _, d in ipairs(workspace:GetDescendants()) do
+        if d:IsA("ProximityPrompt") and matches(d) then
+            table.insert(prompts, d)
+        end
+    end
+    lastScan = os.clock()
+end
+
+task.spawn(function()
+    while gui.Parent do
+        task.wait(0.25)
+        if state.eggAuto and fireproximityprompt then
+            local char = lp.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                if os.clock() - lastScan > 3 then scan() end
+                local best, bestDist
+                for _, p in ipairs(prompts) do
+                    local part = p.Parent
+                    if p.Enabled and part and part:IsA("BasePart") then
+                        local d = (part.Position - hrp.Position).Magnitude
+                        if d <= state.eggRange and (not bestDist or d < bestDist) then
+                            best, bestDist = p, d
+                        end
+                    end
+                end
+                if best then
+                    if bestDist > best.MaxActivationDistance - 2 then
+                        hrp.CFrame = best.Parent.CFrame + Vector3.new(0, 3, 0)
+                    end
+                    best.HoldDuration = 0
+                    fireproximityprompt(best)
+                end
+            end
+        end
+    end
+end)-- Wals Hub (Delta)
 local Players = game:GetService("Players")
 local UIS = game:GetService("UserInputService")
 local RS = game:GetService("RunService")
